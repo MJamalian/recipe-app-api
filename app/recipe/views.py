@@ -7,7 +7,7 @@ from rest_framework import authentication, permissions
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    """View for using recipe APIs."""
+    """View for manage recipe APIs."""
     serializer_class = RecipeDetailSerializer
     queryset = Recipe.objects.all()
     authentication_classes = [authentication.TokenAuthentication]

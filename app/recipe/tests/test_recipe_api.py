@@ -116,3 +116,66 @@ class PrivateRecipeAPITest(TestCase):
         for k, v in recipe_detail.items():
             self.assertEqual(getattr(recipe, k), v)
         self.assertEqual(self.user, recipe.user)
+
+    def test_delete_recipe_successful(self):
+        recipe = create_recipe(self.user)
+
+        res = self.client.delete(recipe_detail_url(recipe.id))
+
+        my_recipes = Recipe.objects.filter(user=self.user)
+
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(my_recipes.exists())
+
+    def test_delete_another_user_recipe_error(self):
+        another_user = get_user_model().objects.create_user(
+            email="test2@example.com",
+            password="testpass123"
+        )
+
+        recipe = create_recipe(another_user)
+
+        res = self.client.delete(recipe_detail_url(recipe.id))
+
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(
+            Recipe.objects.all().exists()
+        )
+
+    def test_update_recipe_successful(self):
+        recipe = create_recipe(self.user)
+
+        update_for_recipe = {
+            "title": "another title",
+            "description": "another description",
+            "price": 100,
+        }
+
+        res = self.client.patch(
+            recipe_detail_url(recipe.id),
+            update_for_recipe
+        )
+
+        recipe.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        for k, v in update_for_recipe.items():
+            self.assertEqual(getattr(recipe, k), v)
+        self.assertEqual(recipe.user, self.user)
+
+    def test_another_user_recipe_update_error(self):
+        another_user = get_user_model().objects.create_user(
+            email="test2@example.com",
+            password="testpass123"
+        )
+
+        recipe = create_recipe(another_user)
+
+        recipe_update = {
+            "title": "another title"
+        }
+
+        res = self.client.patch(recipe_detail_url(recipe.id), recipe_update)
+
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+        recipe.refresh_from_db()
+        self.assertNotEqual(recipe.title, recipe_update["title"])
