@@ -8,9 +8,13 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from core.models import Recipe
-from recipe.serializers import RecipeSerializer
+from recipe.serializers import RecipeSerializer, RecipeDetailSerializer
 
 RECIPE_LIST_URL = reverse("recipe:recipe-list")
+
+
+def recipe_detail_url(id):
+    return reverse("recipe:recipe-detail", args=[id])
 
 
 def create_recipe(user, payload={}):
@@ -84,3 +88,31 @@ class PrivateRecipeAPITest(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)
+
+    def test_get_repice_detail(self):
+        recipe = create_recipe(self.user)
+
+        res = self.client.get(recipe_detail_url(recipe.id))
+
+        serializer = RecipeDetailSerializer(recipe)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(serializer.data, res.data)
+
+    def test_create_recipe_successful(self):
+        recipe_detail = {
+            "title": "some_title",
+            "price": 5,
+            "time_to_get_ready": 5,
+            "description": "some description",
+            "link": "www.example.com/hello",
+        }
+
+        res = self.client.post(RECIPE_LIST_URL, recipe_detail)
+
+        recipe = Recipe.objects.get(id=res.data["id"])
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        for k, v in recipe_detail.items():
+            self.assertEqual(getattr(recipe, k), v)
+        self.assertEqual(self.user, recipe.user)
