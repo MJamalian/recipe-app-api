@@ -14,45 +14,40 @@ class PublicUserApiTest(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-
-    def test_create_user_successful(self):
-        payload = {
+        self.user_detail = {
             "email": "test@example.com",
             "name": "test name",
             "password": "testpass123"
         }
 
-        res = self.client.post(USER_CREATE_URL, payload)
+    def test_create_user_successful(self):
+
+        res = self.client.post(USER_CREATE_URL, self.user_detail)
 
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
-        user = get_user_model().objects.get(email=payload["email"])
+        user = get_user_model().objects.get(email=self.user_detail["email"])
 
-        self.assertEqual(user.name, payload["name"])
-        self.assertTrue(user.check_password(payload["password"]))
+        self.assertEqual(user.name, self.user_detail["name"])
+        self.assertTrue(user.check_password(self.user_detail["password"]))
         self.assertNotIn("password", res.data)
 
     def test_create_user_with_same_email(self):
-        payload = {
-            "email": "test@example.com",
-            "name": "test name",
-            "password": "testpass123"
-        }
 
-        get_user_model().objects.create_user(**payload)
+        get_user_model().objects.create_user(**self.user_detail)
 
-        payload2 = {
-            "email": "test@example.com",
+        user_detail2 = {
+            "email": self.user_detail["email"],
             "name": "test name2",
             "password": "testpass1234"
         }
 
-        res2 = self.client.post(USER_CREATE_URL, payload2)
+        res2 = self.client.post(USER_CREATE_URL, user_detail2)
 
         self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
 
         new_user_exists = get_user_model().objects.filter(
-            name=payload2["name"]
+            name=user_detail2["name"]
         ).exists()
 
         self.assertFalse(new_user_exists)
@@ -75,32 +70,24 @@ class PublicUserApiTest(TestCase):
         self.assertFalse(user_exists)
 
     def test_get_auth_token_successful(self):
-        payload = {
-            "email": "test@example.com",
-            "name": "test name",
-            "password": "testpass123"
-        }
-        get_user_model().objects.create_user(**payload)
+
+        get_user_model().objects.create_user(**self.user_detail)
 
         res = self.client.post(USER_TOKEN_URL, {
-            "email": payload["email"],
-            "password": payload["password"]
+            "email": self.user_detail["email"],
+            "password": self.user_detail["password"]
         })
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn("token", res.data)
 
     def test_get_auth_token_wrong_credential(self):
-        payload = {
-            "email": "test@example.com",
-            "name": "test name",
-            "password": "testpass123"
-        }
-        get_user_model().objects.create_user(**payload)
+
+        get_user_model().objects.create_user(**self.user_detail)
 
         res = self.client.post(USER_TOKEN_URL, {
-            "email": payload["email"],
-            "password": "testpass12"
+            "email": self.user_detail["email"],
+            "password": self.user_detail["password"][1:]
         })
         self.assertNotIn("token", res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
