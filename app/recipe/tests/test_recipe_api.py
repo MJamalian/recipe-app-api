@@ -14,7 +14,16 @@ from recipe.serializers import (
     RecipeDetailSerializer
 )
 
+import os
+import tempfile
+
+from PIL import Image
+
 RECIPE_LIST_URL = reverse("recipe:recipe-list")
+
+
+def image_upload_url(id):
+    return reverse("recipe:recipe-upload-image", args=[id])
 
 
 def recipe_detail_url(id):
@@ -415,3 +424,44 @@ class PrivateRecipeAPITest(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(recipe.ingredients.count(), 0)
+
+
+class ImageUploadAPITest(TestCase):
+    """Test class for testing upload image functionality."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.user = get_user_model().objects.create_user(
+            email="test@example.com",
+            password="testpass1234",
+        )
+        self.client.force_authenticate(self.user)
+
+        self.recipe = create_recipe(self.user)
+
+    def tearDown(self):
+        self.recipe.image.delete()
+
+    def test_upload_image(self):
+        url = image_upload_url(self.recipe.id)
+
+        with tempfile.NamedTemporaryFile(suffix=".jpg") as image_file:
+            img = Image.new("RGB", (10, 10))
+            img.save(image_file, format="JPEG")
+            image_file.seek(0)
+            payload = {"image": image_file}
+            res = self.client.post(url, payload, format="multipart")
+
+        self.recipe.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("image", res.data)
+        self.assertTrue(os.path.exists(self.recipe.image.path))
+
+    def test_upload_bad_image_error(self):
+        url = image_upload_url(self.recipe.id)
+        payload = {"image": "some image"}
+
+        res = self.client.post(url, payload, format="multipart")
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)

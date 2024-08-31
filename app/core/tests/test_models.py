@@ -4,8 +4,16 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
-from core.models import Recipe, Tag, Ingredient
+from core.models import (
+    Recipe,
+    Tag,
+    Ingredient,
+    recipe_image_file_path,
+)
+
 from decimal import Decimal
+
+from unittest.mock import patch
 
 
 class ModelTest(TestCase):
@@ -98,3 +106,12 @@ class ModelTest(TestCase):
 
         self.assertEqual(str(ingredient), ingredient.name)
         self.assertTrue(Ingredient.objects.all().exists())
+
+    @patch("uuid.uuid4")
+    def test_recipe_file_name_uuid(self, mock_uuid):
+        uuid = "test-uuid"
+        mock_uuid.return_value = uuid
+
+        file_path = recipe_image_file_path(None, "example.jpg")
+
+        self.assertEqual(file_path, f'uploads/recipe/{uuid}.jpg')
