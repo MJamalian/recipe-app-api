@@ -5,9 +5,11 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from core.models import Ingredient
+from core.models import Ingredient, Recipe
 
 from recipe.serializers import IngredientSerializer
+
+from decimal import Decimal
 
 
 INGREDIENT_LIST_URL = reverse("recipe:ingredient-list")
@@ -89,7 +91,7 @@ class PrivateIngredientsAPITest(TestCase):
         self.assertEqual(res.data[0]["id"], ingredient.id)
         self.assertEqual(res.data, serializer.data)
 
-    def test_update_tag(self):
+    def test_update_ingredient(self):
         ingredient = create_ingredient(self.user)
 
         ingredient_update = {"name": "potato"}
@@ -104,7 +106,7 @@ class PrivateIngredientsAPITest(TestCase):
         ingredient.refresh_from_db()
         self.assertEqual(ingredient.name, ingredient_update["name"])
 
-    def test_delete_tag(self):
+    def test_delete_ingredient(self):
         ingredient = create_ingredient(self.user)
 
         res = self.client.delete(ingredient_detail_url(ingredient.id))
@@ -113,3 +115,58 @@ class PrivateIngredientsAPITest(TestCase):
 
         ingredients = Ingredient.objects.filter(user=self.user)
         self.assertFalse(ingredients.exists())
+
+    def test_filter_ingredients_by_assigned_to_recipe(self):
+        ingredient1 = create_ingredient(self.user)
+        ingredient2 = create_ingredient(self.user, name="milk")
+
+        recipe = Recipe.objects.create(
+            user=self.user,
+            title="some food",
+            description="some description",
+            time_to_get_ready=5,
+            price=Decimal("5.25"),
+        )
+        recipe.ingredients.add(ingredient1)
+
+        res = self.client.get(
+            INGREDIENT_LIST_URL,
+            {"assigned_only": 1}
+        )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        s1 = IngredientSerializer(ingredient1)
+        s2 = IngredientSerializer(ingredient2)
+
+        self.assertIn(s1.data, res.data)
+        self.assertNotIn(s2.data, res.data)
+
+    def test_filter_ingredients_unique(self):
+        ingredient = create_ingredient(self.user)
+
+        recipe1 = Recipe.objects.create(
+            user=self.user,
+            title="some food",
+            description="some description",
+            time_to_get_ready=5,
+            price=Decimal("5.25"),
+        )
+        recipe2 = Recipe.objects.create(
+            user=self.user,
+            title="another food",
+            description="another description",
+            time_to_get_ready=10,
+            price=Decimal("3.25"),
+        )
+
+        recipe1.ingredients.add(ingredient)
+        recipe2.ingredients.add(ingredient)
+
+        res = self.client.get(
+            INGREDIENT_LIST_URL,
+            {"assigned_only": 1}
+        )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 1)

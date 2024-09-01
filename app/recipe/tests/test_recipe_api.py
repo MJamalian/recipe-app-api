@@ -425,6 +425,82 @@ class PrivateRecipeAPITest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(recipe.ingredients.count(), 0)
 
+    def test_filter_by_tags(self):
+        tag1 = Tag.objects.create(user=self.user, name="vegeterian")
+        tag2 = Tag.objects.create(user=self.user, name="lunch")
+
+        recipe1 = create_recipe(self.user)
+        recipe2 = create_recipe(
+            self.user,
+            {
+                "title": "new title",
+                "description": "new description",
+            }
+        )
+        recipe3 = create_recipe(
+            self.user,
+            {
+                "title": "another title",
+                "description": "another description",
+            }
+        )
+
+        recipe1.tags.add(tag1)
+        recipe2.tags.add(tag1)
+        recipe2.tags.add(tag2)
+
+        params = {"tags": f'{tag1.id},{tag2.id}'}
+        res = self.client.get(RECIPE_LIST_URL, params)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        s1 = RecipeSerializer(recipe1)
+        s2 = RecipeSerializer(recipe2)
+        s3 = RecipeSerializer(recipe3)
+
+        self.assertEqual(len(res.data), 2)
+        self.assertIn(s1.data, res.data)
+        self.assertIn(s2.data, res.data)
+        self.assertNotIn(s3.data, res.data)
+
+    def test_filter_by_ingredients(self):
+        ingredient1 = Ingredient.objects.create(user=self.user, name="tomato")
+        ingredient2 = Ingredient.objects.create(user=self.user, name="milk")
+
+        recipe1 = create_recipe(self.user)
+        recipe2 = create_recipe(
+            self.user,
+            {
+                "title": "new title",
+                "description": "new description",
+            }
+        )
+        recipe3 = create_recipe(
+            self.user,
+            {
+                "title": "another title",
+                "description": "another description",
+            }
+        )
+
+        recipe1.ingredients.add(ingredient1)
+        recipe2.ingredients.add(ingredient1)
+        recipe2.ingredients.add(ingredient2)
+
+        params = {"ingredients": f'{ingredient1.id},{ingredient2.id}'}
+        res = self.client.get(RECIPE_LIST_URL, params)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        s1 = RecipeSerializer(recipe1)
+        s2 = RecipeSerializer(recipe2)
+        s3 = RecipeSerializer(recipe3)
+
+        self.assertEqual(len(res.data), 2)
+        self.assertIn(s1.data, res.data)
+        self.assertIn(s2.data, res.data)
+        self.assertNotIn(s3.data, res.data)
+
 
 class ImageUploadAPITest(TestCase):
     """Test class for testing upload image functionality."""
